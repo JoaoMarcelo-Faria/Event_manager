@@ -1,0 +1,38 @@
+============================================================
+INSTRUÇÕES DE EXECUÇÃO DO PROJETO
+============================================================
+
+NOMES DOS INTEGRANTES:
+- Gustavo Fantato Fernandes - NUSP: 16986132
+- João Marcelo Geraldo Cintra Faria - NUSP: 5587582
+- Lucas Xavier Carvalho Santos - NUSP: 16885290
+- Pedro Benedito Rondi - NUSP: 17097914
+- Renan Silva Blasques - NUSP: 9784057
+
+REQUISITOS DE SOFTWARE:
+- PostgreSQL
+- Python 3.11 ou superior
+- Ollama para execução de modelos locais
+- Bibliotecas Python: ollama e psycopg[binary] (inclusas no requirements.txt)
+
+INSTRUÇÕES PARA CRIAÇÃO DA BASE:
+1. Conecte-se ao PostgreSQL e crie um novo banco de dados (ex: "eventos").
+2. Abra o arquivo Projeto.txt, copie o código SQL presente na seção "3. DDL COMPLETO" e execute-o no banco de dados criado para estruturar as tabelas, restrições e triggers.
+
+INSTRUÇÕES PARA EXECUÇÃO DO DML:
+1. Após criar a estrutura do banco, abra o arquivo DML.sql no PostgreSQL.
+2. Execute todos os comandos de inserção para popular o banco de dados com os registros de teste.
+
+INSTRUÇÕES PARA EXECUÇÃO DO PROTÓTIPO:
+1. Abra o arquivo config.json (dentro da pasta Prototipo) e certifique-se de que os dados de conexão ("host", "port", "dbname", "user", "password") correspondem ao banco de dados criado.
+2. Certifique-se de que o serviço do Ollama está rodando localmente na sua máquina.
+3. Pelo terminal, navegue até a pasta Prototipo e instale as dependências usando:
+   python -m pip install -r requirements.txt
+4. Execute o programa principal digitando exclusivamente o seguinte comando:
+   python main.py
+
+MODELO UTILIZADO NO OLLAMA:
+- [Inserir o nome do modelo utilizado, por exemplo: qwen3:8b]
+
+EVENTUAIS LIMITAÇÕES OU FUNCIONALIDADES NÃO CONCLUÍDAS:
+- [Descreva aqui se alguma parte do sistema não foi feita, se existe algum bug conhecido no protótipo ou nos triggers. Se tudo estiver funcionando conforme os requisitos, escreva "Nenhuma limitação funcional encontrada."]

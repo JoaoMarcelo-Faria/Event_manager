@@ -1,0 +1,103 @@
+erDiagram
+    direction LR
+    Promotor {
+        INT ID_Promotor PK 
+        VARCHAR Nome "NN"
+        VARCHAR Email_contato "NN"
+    }
+    Pessoa_fisica {
+        VARCHAR CPF PK
+        INT ID_Promotor FK
+    }
+    Organizacao {
+        VARCHAR CNPJ PK
+        INT ID_Promotor FK
+    }
+    Evento {
+        INT ID_Evento PK
+        INT ID_Promotor FK
+        VARCHAR Titulo "NN"
+        DATE DataI
+        DATE DataT
+        INT ID_anterior FK
+    }
+    Atividade {
+        INT ID_Atividade PK
+        INT ID_Evento FK
+        VARCHAR Titulo "NN"
+        VARCHAR Tipo "NN"
+        TEXT Descricao
+        BOOLEAN Exige_inscri "NN"
+    }
+    Sessao {
+        INT ID_sessao PK
+        INT ID_Atividade FK
+        INT ID_Espaco FK
+        DATE Data 
+        TIME HorarioI
+        TIME HorarioT
+         INT Cap_max
+    }
+    Espaco {
+        INT ID_Espaco PK
+        VARCHAR Nome "NN"
+        INT Capacidade "NN"
+    }
+    Recurso {
+        INT ID_Recurso PK
+        VARCHAR Nome "NN"
+        TEXT Descricao
+    }
+    Participante {
+        INT ID_particip PK
+        VARCHAR Nome "NN"
+        VARCHAR Documento UK "NN"
+        VARCHAR Email "NN"
+    }
+    Log_sessao {
+        INT ID_sessao PK, FK
+        INT ID_Log PK
+        TIMESTAMP DataAlteracao "NN"
+        DATE Data_An "NN"
+        TIME HorarioI_An "NN"
+        TIME HorarioT_An "NN"
+        INT ID_espaco_An FK "NN"
+    }
+    Participa {
+        INT ID_Evento PK, FK
+        INT ID_particip PK, FK
+    }
+    Inscreve {
+        INT ID_particip PK, FK
+        INT ID_sessao PK, FK
+        VARCHAR Papel_particip "NN"
+    }
+    Exige {
+        INT ID_Atividade PK, FK
+        INT ID_Recurso PK, FK
+    }
+    Possui {
+        INT ID_Recurso PK, FK
+        INT ID_Espaco PK, FK
+    }
+
+    Promotor ||--o| Pessoa_fisica : "D"
+    Promotor ||--o| Organizacao : "D"
+
+    Promotor ||..o{ Evento : promove
+    Evento |o..o| Evento : edicao
+    Evento ||..o{ Atividade : compoe
+    Atividade ||..o{ Sessao : realiza
+    Espaco ||..o{ Sessao : ocorre
+
+    Evento ||--o{ Participa : ""
+    Participante ||--o{ Participa : ""
+    Participante ||--o{ Inscreve : ""
+    Sessao ||--o{ Inscreve : ""
+    Atividade ||--o{ Exige : ""
+    Recurso ||--o{ Exige : ""
+    Recurso ||--o{ Possui : ""
+    Espaco ||--o{ Possui : ""
+
+    Sessao ||--o{ Log_sessao : escreve
+    Espaco ||..o{ Log_sessao : ""

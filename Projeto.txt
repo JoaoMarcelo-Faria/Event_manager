@@ -1,0 +1,50 @@
+============================================================
+SCC0640 - PROJETO DE BASES DE DADOS
+============================================================
+GRUPO: [Nome do Grupo]
+INTEGRANTES:
+- Gustavo Fantato Fernandes - 16986132
+- João Marcelo Geraldo Cintra Faria - 5587582
+- Lucas Xavier Carvalho Santos - 16885290
+- Pedro Benedito Rondi - 17097914
+- Renan Silva Blasques - 9784057
+LINGUAGEM UTILIZADA: Python 3.11+
+MODELO UTILIZADO NO OLLAMA: [Modelo, ex: qwen3:8b]
+============================================================
+1. DESCRICAO FINAL DO SISTEMA
+============================================================
+[Descreva brevemente o sistema efetivamente implementado.]
+============================================================
+2. DECISOES DE PROJETO
+============================================================
+Q1: Acredita-se que uma boa saída para esse problema é tratar com uma generalização, ou seja, teremos uma entidade geral "Promoter" que terá duas subclasses "Organização" e "Pessoa" com relacionamento de disjunção e participação total de Promoter. O relacionamento com o evento será feito pela entidade-pai, fazendo com que essa entidade possua os principais atributos, enquanto que as entidades-filhas terão chaves primárias diferentes (CPF - pessoa / CNPJ - organização). Organização inclui todo promotor que não seja uma única pessoa física.
+Q2: A solução proposta é criar uma única entidade principal "Participante" que representa qualquer ouvinte, organizador ou palestrante no evento. Além disso, será necessária a adição do atributo "papel_participante" na entidade associativa entre evento X participante ou sessão X participante. Permitindo que uma pessoa seja ouvinte em uma sessão e palestrante em outra.
+Q3: A solução proposta pelo grupo é criar uma entidade associativa chamada "Sessão" que terá relação com Participantes (outra entidade associativa), Atividade, Palestrante e Espaço. Essa entidade irá guardar o identificador da atividade para ter as informações básicas dela, mas também terá como atributos uma data, horário de início e horário de término.
+Q4: A solução que o grupo propõe é representar cada edição como um novo evento. Além disso, para que as edições se relacionem, é necessário adicionar um auto-relacionamento em Evento para que a edição atual faça referência à edição anterior, simulando uma lista ligada. Além disso, como uma edição nova é um novo evento, não é interessante o compartilhamento de informações antigas, além do ID da seção anterior, já que uma edição de um novo evento pode ser completamente diferente da edição anterior.
+Q5: A solução pensada pelo grupo é codificar um trigger que deixe maior importância para a capacidade de uma atividade, seguida da capacidade do espaço. Assim, o trigger verificará se a capacidade da atividade é maior que a do espaço, caso sim, o número de vagas é limitado pelo tamanho do espaço, se não, ele se guia pelo tamanho da atividade. Além disso, o trigger deve alterar o atributo “Status” para “Em espera” para que o usuário seja colocado em uma fila de espera.
+Q6: A solução que o grupo propõe é guardar os dados anteriores das sessões, uma vez que, caso ocorra desistência de ouvintes após a alteração, é interessante guardar esses dados para análises posteriores. Além disso, as informações antigas são necessárias para realocação dos ouvintes e das listas de espera dessa sessão.
+============================================================
+3. DDL COMPLETO
+============================================================
+[Inserir aqui todo o DDL necessário para criação do banco.]
+============================================================
+4. CONSULTAS
+============================================================
+CONSULTA 1
+OBJETIVO: [uma frase]
+SQL: [consulta]
+CONSULTA 2
+OBJETIVO: [uma frase]
+SQL: [consulta]
+CONSULTA 3
+OBJETIVO: [uma frase]
+SQL: [consulta]
+CONSULTA 4
+OBJETIVO: [uma frase]
+SQL: [consulta]
+CONSULTA 5
+OBJETIVO: [uma frase]
+SQL: [consulta]
+============================================================
+FIM DO ARQUIVO
+============================================================
