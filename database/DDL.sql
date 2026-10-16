@@ -17,6 +17,10 @@ CREATE TYPE papel_participante AS ENUM (
     'PARTICIPANTE', 'PALESTRANTE', 'INSTRUTOR', 'ORGANIZADOR'
 );
 
+CREATE TYPE status_inscricao AS ENUM ( 
+    'EM ESPERA', 'CANCELADA', 'CONFIRMADA'
+);
+
 -- =====================================================
 -- PROMOTOR (supertipo) E ESPECIALIZAÇÃO D (total e disjunta)
 -- =====================================================
@@ -100,17 +104,13 @@ CREATE TABLE evento(
     titulo      VARCHAR(100) NOT NULL,
     datai       DATE,
     datat       DATE,
-    id_anterior INTEGER,
+    edicao      INT,
     CONSTRAINT pk_evento PRIMARY KEY (id_evento),
-    CONSTRAINT uq_evento_anterior UNIQUE (id_anterior),
+    CONSTRAINT uq_evento_titulo_edicao UNIQUE (titulo, edicao),
     CONSTRAINT fk_evento_promotor
         FOREIGN KEY (id_promotor) REFERENCES promotor (id_promotor)
         ON DELETE RESTRICT ON UPDATE CASCADE,
-    CONSTRAINT fk_evento_anterior
-        FOREIGN KEY (id_anterior) REFERENCES evento (id_evento)
-        ON DELETE SET NULL ON UPDATE CASCADE,
-    CONSTRAINT ck_evento_periodo CHECK (datat >= datai),
-    CONSTRAINT ck_evento_anterior_diferente CHECK (id_anterior <> id_evento)
+    CONSTRAINT ck_evento_periodo CHECK (datat >= datai)
 );
 
 -- =====================================================
@@ -232,6 +232,7 @@ CREATE TABLE inscreve(
     id_particip     INTEGER            NOT NULL,
     id_sessao       INTEGER            NOT NULL,
     papel_particip  papel_participante NOT NULL,
+    status          status_inscricao   NOT NULL,
     CONSTRAINT pk_inscreve PRIMARY KEY (id_particip, id_sessao),
     CONSTRAINT fk_inscreve_participante
         FOREIGN KEY (id_particip) REFERENCES participante (id_particip)
