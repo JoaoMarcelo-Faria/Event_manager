@@ -1,0 +1,89 @@
+============================================================
+4. CONSULTAS
+============================================================
+CONSULTA 1
+OBJETIVO: Listar a programação completa da edição atual de um evento específico (Semana Acadêmica de Computação 26), incluindo as informações da atividade, o espaço e os horários, com ordenação temporal (atividades aparecem na ordem em que acontecem).
+SQL: SELECT a.titulo AS atividade, 
+       a.tipo, 
+       es.nome AS espaco, 
+       s.data, 
+       s.horarioi, 
+       s.horariot
+FROM evento e
+JOIN atividade a ON a.id_evento = e.id_evento
+JOIN sessao s ON s.id_atividade = a.id_atividade
+JOIN espaco es ON es.id_espaco = s.id_espaco
+WHERE e.titulo = 'Semana Acadêmica de Computação 26'
+ORDER BY s.data, s.horarioi;
+
+CONSULTA 2
+OBJETIVO: Gerar um relatório de ocupação exibindo a capacidade máxima da sessão e contabilizando o número de inscrições por status, restrito às sessões que possuam pelo menos um inscrito.
+SQL: SELECT a.titulo AS atividade,
+       s.id_sessao,
+       s.cap_max AS capacidade_sessao,
+       COUNT(i.id_particip) FILTER (WHERE i.status = 'CONFIRMADA') AS confirmadas,
+       COUNT(i.id_particip) FILTER (WHERE i.status = 'EM ESPERA') AS em_espera,
+       COUNT(i.id_particip) FILTER (WHERE i.status = 'CANCELADA') AS canceladas
+FROM atividade a
+JOIN sessao s ON s.id_atividade = a.id_atividade
+LEFT JOIN inscreve i ON i.id_sessao = s.id_sessao
+GROUP BY a.id_atividade, a.titulo, s.id_sessao, s.cap_max
+HAVING COUNT(i.id_particip) > 0
+ORDER BY confirmadas DESC;
+
+CONSULTA 3
+OBJETIVO: Identificar participantes que atuam simultaneamente na organização técnica (como palestrantes ou instrutores) em determinada sessão, mas que também estão inscritos como ouvintes (participantes) em outras sessões do sistema.
+SQL: SELECT p.nome, p.email
+FROM participante p
+WHERE EXISTS (
+    SELECT 1
+    FROM inscreve i1
+    WHERE i1.id_particip = p.id_particip
+      AND i1.papel_particip IN ('PALESTRANTE', 'INSTRUTOR')
+)
+AND EXISTS (
+    SELECT 1
+    FROM inscreve i2
+    WHERE i2.id_particip = p.id_particip
+      AND i2.papel_particip = 'PARTICIPANTE'
+);
+
+CONSULTA 4
+OBJETIVO: Encontrar os espaços físicos que possuem todos os recursos exigidos por uma atividade específica (Workshop de PostgreSQL), utilizando a lógica de divisão relacional.
+SQL: SELECT e.nome, e.capacidade
+FROM espaco e
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM exige ex
+    WHERE ex.id_atividade = 2
+      AND NOT EXISTS (
+          SELECT 1
+          FROM possui po
+          WHERE po.id_espaco = e.id_espaco
+            AND po.id_recurso = ex.id_recurso
+      )
+);
+
+CONSULTA 5
+OBJETIVO: Criar um ranking de popularidade das atividades dentro de cada evento, ranqueando-as com base no número total de pessoas interessadas (inscrições confirmadas ou em espera).
+SQL: WITH inscricoes_por_atividade AS (
+    SELECT ev.titulo AS evento,
+           a.titulo AS atividade,
+           COUNT(i.id_particip) AS total_interessados
+    FROM evento ev
+    JOIN atividade a ON a.id_evento = ev.id_evento
+    JOIN sessao s ON s.id_atividade = a.id_atividade
+    JOIN inscreve i ON i.id_sessao = s.id_sessao
+    WHERE i.status IN ('CONFIRMADA', 'EM ESPERA')
+    GROUP BY ev.id_evento, ev.titulo, a.id_atividade, a.titulo
+)
+SELECT evento,
+       atividade,
+       total_interessados,
+       RANK() OVER (
+           PARTITION BY evento 
+           ORDER BY total_interessados DESC
+       ) AS ranking_no_evento
+FROM inscricoes_por_atividade
+ORDER BY evento, ranking_no_evento;
+
