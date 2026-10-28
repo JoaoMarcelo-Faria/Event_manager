@@ -1,36 +1,38 @@
-TRIGGER 1:
-
+-- =====================================================
+-- TRIGGER 1: JÁ ESTÁ NO ARQUIVO DDL.sql 
+-- Não precisa executar esse Trigger
 -- Participação total: todo promotor precisa estar em UMA das subtabelas.
 -- Verificada só no fim da transação (DEFERRED).
-CREATE FUNCTION fn_checa_especializacao_promotor() RETURNS trigger AS $$
-DECLARE
-    v_id INTEGER;
-BEGIN
-    v_id := CASE WHEN TG_OP = 'DELETE' THEN OLD.id_promotor ELSE NEW.id_promotor END;
+-- =====================================================
+-- CREATE FUNCTION fn_checa_especializacao_promotor() RETURNS trigger AS $$
+-- DECLARE
+--     v_id INTEGER;
+-- BEGIN
+--     v_id := CASE WHEN TG_OP = 'DELETE' THEN OLD.id_promotor ELSE NEW.id_promotor END;
 
-    IF EXISTS (SELECT 1 FROM promotor WHERE id_promotor = v_id)
-       AND NOT EXISTS (SELECT 1 FROM pessoa_fisica WHERE id_promotor = v_id)
-       AND NOT EXISTS (SELECT 1 FROM organizacao   WHERE id_promotor = v_id) THEN
-        RAISE EXCEPTION 'Promotor % precisa ser pessoa fisica ou organizacao', v_id;
-    END IF;
-    RETURN NULL;
-END;
-$$ LANGUAGE plpgsql;
+--     IF EXISTS (SELECT 1 FROM promotor WHERE id_promotor = v_id)
+--        AND NOT EXISTS (SELECT 1 FROM pessoa_fisica WHERE id_promotor = v_id)
+--        AND NOT EXISTS (SELECT 1 FROM organizacao   WHERE id_promotor = v_id) THEN
+--         RAISE EXCEPTION 'Promotor % precisa ser pessoa fisica ou organizacao', v_id;
+--     END IF;
+--     RETURN NULL;
+-- END;
+-- $$ LANGUAGE plpgsql;
 
-CREATE CONSTRAINT TRIGGER trg_promotor_total
-    AFTER INSERT ON promotor
-    DEFERRABLE INITIALLY DEFERRED
-    FOR EACH ROW EXECUTE FUNCTION fn_checa_especializacao_promotor();
+-- CREATE CONSTRAINT TRIGGER trg_promotor_total
+--     AFTER INSERT ON promotor
+--     DEFERRABLE INITIALLY DEFERRED
+--     FOR EACH ROW EXECUTE FUNCTION fn_checa_especializacao_promotor();
 
-CREATE CONSTRAINT TRIGGER trg_pessoa_fisica_total
-    AFTER DELETE ON pessoa_fisica
-    DEFERRABLE INITIALLY DEFERRED
-    FOR EACH ROW EXECUTE FUNCTION fn_checa_especializacao_promotor();
+-- CREATE CONSTRAINT TRIGGER trg_pessoa_fisica_total
+--     AFTER DELETE ON pessoa_fisica
+--     DEFERRABLE INITIALLY DEFERRED
+--     FOR EACH ROW EXECUTE FUNCTION fn_checa_especializacao_promotor();
 
-CREATE CONSTRAINT TRIGGER trg_organizacao_total
-    AFTER DELETE ON organizacao
-    DEFERRABLE INITIALLY DEFERRED
-    FOR EACH ROW EXECUTE FUNCTION fn_checa_especializacao_promotor()
+-- CREATE CONSTRAINT TRIGGER trg_organizacao_total
+--     AFTER DELETE ON organizacao
+--     DEFERRABLE INITIALLY DEFERRED
+--     FOR EACH ROW EXECUTE FUNCTION fn_checa_especializacao_promotor()
 
 
 
