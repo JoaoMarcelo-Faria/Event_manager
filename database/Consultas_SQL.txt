@@ -32,37 +32,35 @@ HAVING COUNT(i.id_particip) > 0
 ORDER BY confirmadas DESC;
 
 CONSULTA 3
-OBJETIVO: Identificar participantes que atuam simultaneamente na organização técnica (como palestrantes ou instrutores) em determinada sessão, mas que também estão inscritos como ouvintes (participantes) em outras sessões do sistema.
-SQL: SELECT p.nome, p.email
-FROM participante p
-WHERE EXISTS (
-    SELECT 1
-    FROM inscreve i1
-    WHERE i1.id_particip = p.id_particip
-      AND i1.papel_particip IN ('PALESTRANTE', 'INSTRUTOR')
-)
-AND EXISTS (
-    SELECT 1
-    FROM inscreve i2
-    WHERE i2.id_particip = p.id_particip
-      AND i2.papel_particip = 'PARTICIPANTE'
-);
+OBJETIVO: Realizar um levantamento geral da programação, identificando todas as atividades relacionadas a dados ou inteligência artificial buscando por palavras-chave no título, utilizando ILIKE quando pertinente.
+SQL: SELECT e.titulo AS evento, 
+       a.titulo AS atividade, 
+       a.tipo
+FROM atividade a
+JOIN evento e ON a.id_evento = e.id_evento
+WHERE a.titulo ILIKE '%dados%' 
+   OR a.titulo LIKE '%IA %'
+   OR a.titulo ILIKE '%inteligência artificial%'
+ORDER BY e.datai;
 
 CONSULTA 4
-OBJETIVO: Encontrar os espaços físicos que possuem todos os recursos exigidos por uma atividade específica (Workshop de PostgreSQL), utilizando a lógica de divisão relacional.
-SQL: SELECT e.nome, e.capacidade
-FROM espaco e
+OBJETIVO: Identificar participantes "fantasmas" em eventos: pessoas que se inscreveram no evento geral, mas que não possuem nenhuma inscrição com status 'CONFIRMADA' nas sessões de atividades daquele mesmo evento.
+SQL: SELECT p.nome, 
+       p.email, 
+       e.titulo AS evento
+FROM participante p
+JOIN participa pa ON p.id_particip = pa.id_particip
+JOIN evento e ON pa.id_evento = e.id_evento
 WHERE NOT EXISTS (
-    SELECT 1
-    FROM exige ex
-    WHERE ex.id_atividade = 2
-      AND NOT EXISTS (
-          SELECT 1
-          FROM possui po
-          WHERE po.id_espaco = e.id_espaco
-            AND po.id_recurso = ex.id_recurso
-      )
-);
+    SELECT 1 
+    FROM inscreve i
+    JOIN sessao s ON i.id_sessao = s.id_sessao
+    JOIN atividade a ON s.id_atividade = a.id_atividade
+    WHERE i.id_particip = p.id_particip
+      AND a.id_evento = e.id_evento
+      AND i.status = 'CONFIRMADA'
+)
+ORDER BY e.titulo, p.nome;
 
 CONSULTA 5
 OBJETIVO: Criar um ranking de popularidade das atividades dentro de cada evento, ranqueando-as com base no número total de pessoas interessadas (inscrições confirmadas ou em espera).
