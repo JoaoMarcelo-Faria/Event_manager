@@ -1,7 +1,7 @@
 ============================================================
 SCC0640 - PROJETO DE BASES DE DADOS
 ============================================================
-GRUPO: [Nome do Grupo]
+GRUPO: event_manager
 INTEGRANTES:
 - Gustavo Fantato Fernandes - 16986132
 - João Marcelo Geraldo Cintra Faria - 5587582
@@ -9,11 +9,16 @@ INTEGRANTES:
 - Pedro Benedito Rondi - 17097914
 - Renan Silva Blasques - 9784057
 LINGUAGEM UTILIZADA: Python 3.11+
-MODELO UTILIZADO NO OLLAMA: [Modelo, ex: qwen3:8b]
+MODELO UTILIZADO NO OLLAMA: qwen3:8b
 ============================================================
 1. DESCRICAO FINAL DO SISTEMA
 ============================================================
-[Descreva brevemente o sistema efetivamente implementado.]
+O sistema gerencia eventos e suas edições, diferenciando os promotores de forma total e disjunta entre pessoas físicas e organizações. 
+As atividades da programação podem ocorrer em múltiplas sessões sem sobreposição de horários no mesmo local, garantindo que a 
+capacidade máxima e os recursos exigidos sejam atendidos pelo espaço alocado. O envolvimento das pessoas é flexibilizado ao atribuir 
+o papel por sessão — permitindo que palestrantes ou instrutores atuem como participantes em outras atividades —, além de controlar 
+limites de vagas, listas de espera e cancelamentos nas sessões que exigem inscrição adicional. Por fim, eventuais mudanças de data, 
+horário ou local são registradas em um histórico de sessões para auditar alterações na programação.
 ============================================================
 2. DECISOES DE PROJETO
 ============================================================
@@ -26,25 +31,553 @@ Q6: A solução que o grupo propõe é guardar os dados anteriores das sessões,
 ============================================================
 3. DDL COMPLETO
 ============================================================
-[Inserir aqui todo o DDL necessário para criação do banco.]
+-- EXTENSÃO (necessária para a constraint de conflito de espaço)
+
+CREATE EXTENSION IF NOT EXISTS btree_gist;
+
+-- ENUMs
+
+CREATE TYPE tipo_promotor AS ENUM ('PESSOA_FISICA', 'ORGANIZACAO');
+
+CREATE TYPE tipo_atividade AS ENUM (
+    'PALESTRA', 'WORKSHOP', 'MINICURSO', 'PAINEL',
+    'MESA_REDONDA', 'APRESENTACAO', 'OUTRO'
+);
+
+CREATE TYPE papel_participante AS ENUM (
+    'PARTICIPANTE', 'PALESTRANTE', 'INSTRUTOR', 'ORGANIZADOR'
+);
+
+CREATE TYPE status_inscricao AS ENUM ( 
+    'EM ESPERA', 'CANCELADA', 'CONFIRMADA'
+);
+
+
+-- PROMOTOR (supertipo) E ESPECIALIZAÇÃO D (total e disjunta)
+
+CREATE TABLE promotor(
+    id_promotor   INTEGER GENERATED ALWAYS AS IDENTITY,
+    nome          VARCHAR(50)  NOT NULL,
+    email_contato VARCHAR(50)  NOT NULL,
+    tipo          tipo_promotor NOT NULL,
+    CONSTRAINT pk_promotor PRIMARY KEY (id_promotor),
+    CONSTRAINT uq_promotor_id_tipo UNIQUE (id_promotor, tipo),
+    CONSTRAINT ck_promotor_email
+        CHECK (email_contato ~* '^[^@\s]+@[^@\s]+\.[^@\s]+$')
+);
+
+CREATE TABLE pessoa_fisica(
+    cpf         VARCHAR(11)   NOT NULL,
+    id_promotor INTEGER       NOT NULL,
+    tipo        tipo_promotor NOT NULL DEFAULT 'PESSOA_FISICA',
+    CONSTRAINT pk_pessoa_fisica PRIMARY KEY (cpf),
+    CONSTRAINT uq_pessoa_fisica_promotor UNIQUE (id_promotor),
+    CONSTRAINT fk_pessoa_fisica_promotor
+        FOREIGN KEY (id_promotor, tipo)
+        REFERENCES promotor (id_promotor, tipo)
+        ON DELETE CASCADE ON UPDATE RESTRICT,
+    CONSTRAINT ck_pessoa_fisica_tipo CHECK (tipo = 'PESSOA_FISICA'),
+    CONSTRAINT ck_pessoa_fisica_cpf  CHECK (cpf ~ '^[0-9]{11}$')
+);
+
+CREATE TABLE organizacao(
+    cnpj        VARCHAR(14)   NOT NULL,
+    id_promotor INTEGER       NOT NULL,
+    tipo        tipo_promotor NOT NULL DEFAULT 'ORGANIZACAO',
+    CONSTRAINT pk_organizacao PRIMARY KEY (cnpj),
+    CONSTRAINT uq_organizacao_promotor UNIQUE (id_promotor),
+    CONSTRAINT fk_organizacao_promotor
+        FOREIGN KEY (id_promotor, tipo)
+        REFERENCES promotor (id_promotor, tipo)
+        ON DELETE CASCADE ON UPDATE RESTRICT,
+    CONSTRAINT ck_organizacao_tipo CHECK (tipo = 'ORGANIZACAO'),
+    CONSTRAINT ck_organizacao_cnpj CHECK (cnpj ~ '^[0-9]{14}$')
+);
+
+-- EVENTO
+
+CREATE TABLE evento(
+    id_evento   INTEGER GENERATED ALWAYS AS IDENTITY,
+    id_promotor INTEGER      NOT NULL,
+    titulo      VARCHAR(100) NOT NULL,
+    datai       DATE,
+    datat       DATE,
+    edicao      INT,
+    CONSTRAINT pk_evento PRIMARY KEY (id_evento),
+    CONSTRAINT uq_evento_titulo_edicao UNIQUE (titulo, edicao),
+    CONSTRAINT fk_evento_promotor
+        FOREIGN KEY (id_promotor) REFERENCES promotor (id_promotor)
+        ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT ck_evento_periodo CHECK (datat >= datai)
+);
+
+
+-- ATIVIDADE
+
+CREATE TABLE atividade(
+    id_atividade  INTEGER GENERATED ALWAYS AS IDENTITY,
+    id_evento     INTEGER        NOT NULL,
+    titulo        VARCHAR(100)   NOT NULL,
+    tipo          tipo_atividade NOT NULL,
+    descricao     TEXT,
+    exige_inscri  BOOLEAN        NOT NULL,
+    CONSTRAINT pk_atividade PRIMARY KEY (id_atividade),
+    CONSTRAINT fk_atividade_evento
+        FOREIGN KEY (id_evento) REFERENCES evento (id_evento)
+        ON DELETE RESTRICT ON UPDATE CASCADE
+);
+
+
+-- ESPACO E RECURSO
+
+CREATE TABLE espaco(
+    id_espaco  INTEGER GENERATED ALWAYS AS IDENTITY,
+    nome       VARCHAR(50) NOT NULL,
+    capacidade INTEGER     NOT NULL,
+    CONSTRAINT pk_espaco PRIMARY KEY (id_espaco),
+    CONSTRAINT ck_espaco_capacidade CHECK (capacidade > 0)
+);
+
+CREATE TABLE recurso(
+    id_recurso INTEGER GENERATED ALWAYS AS IDENTITY,
+    nome       VARCHAR(50) NOT NULL,
+    descricao  TEXT,
+    CONSTRAINT pk_recurso PRIMARY KEY (id_recurso)
+);
+
+
+-- PARTICIPANTE
+
+CREATE TABLE participante(
+    id_particip INTEGER GENERATED ALWAYS AS IDENTITY,
+    nome        VARCHAR(100) NOT NULL,
+    documento   VARCHAR(20)  NOT NULL,
+    email       VARCHAR(100) NOT NULL,
+    CONSTRAINT pk_participante PRIMARY KEY (id_particip),
+    CONSTRAINT uq_participante_documento UNIQUE (documento),
+    CONSTRAINT ck_participante_email
+        CHECK (email ~* '^[^@\s]+@[^@\s]+\.[^@\s]+$')
+);
+
+
+-- SESSAO
+-- (data e horários podem ser NULL: sessão ainda em planejamento)
+
+CREATE TABLE sessao(
+    id_sessao    INTEGER GENERATED ALWAYS AS IDENTITY,
+    id_atividade INTEGER NOT NULL,
+    id_espaco    INTEGER NOT NULL,
+    data         DATE,
+    horarioi     TIME,
+    horariot     TIME,
+    cap_max      INTEGER,
+    CONSTRAINT pk_sessao PRIMARY KEY (id_sessao),
+    CONSTRAINT fk_sessao_atividade
+        FOREIGN KEY (id_atividade) REFERENCES atividade (id_atividade)
+        ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT fk_sessao_espaco
+        FOREIGN KEY (id_espaco) REFERENCES espaco (id_espaco)
+        ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT ck_sessao_horario CHECK (horariot > horarioi),
+    CONSTRAINT ck_sessao_cap_max CHECK (cap_max > 0),
+    -- duas sessões não podem ocupar o mesmo espaço em horários que se sobrepõem
+    -- (só vale para sessões já agendadas por completo)
+    CONSTRAINT ex_sessao_conflito_espaco
+        EXCLUDE USING gist (
+            id_espaco WITH =,
+            tsrange(data + horarioi, data + horariot) WITH &&
+        )
+        WHERE (data IS NOT NULL AND horarioi IS NOT NULL AND horariot IS NOT NULL)
+);
+
+
+-- LOG_SESSAO (entidade fraca de sessao)
+
+CREATE TABLE log_sessao(
+    id_sessao       INTEGER   NOT NULL,
+    id_log          INTEGER GENERATED ALWAYS AS IDENTITY,
+    dataalteracao   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    data_an         DATE      NOT NULL,
+    horarioi_an     TIME      NOT NULL,
+    horariot_an     TIME      NOT NULL,
+    id_espaco_an    INTEGER   NOT NULL,
+    CONSTRAINT pk_log_sessao PRIMARY KEY (id_sessao, id_log),
+    CONSTRAINT fk_log_sessao_sessao
+        FOREIGN KEY (id_sessao) REFERENCES sessao (id_sessao)
+        ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT fk_log_sessao_espaco
+        FOREIGN KEY (id_espaco_an) REFERENCES espaco (id_espaco)
+        ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT ck_log_sessao_horario CHECK (horariot_an > horarioi_an)
+);
+
+
+-- TABELAS ASSOCIATIVAS (N:M)
+
+CREATE TABLE participa(
+    id_evento   INTEGER NOT NULL,
+    id_particip INTEGER NOT NULL,
+    CONSTRAINT pk_participa PRIMARY KEY (id_evento, id_particip),
+    CONSTRAINT fk_participa_evento
+        FOREIGN KEY (id_evento) REFERENCES evento (id_evento)
+        ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT fk_participa_participante
+        FOREIGN KEY (id_particip) REFERENCES participante (id_particip)
+        ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+CREATE TABLE inscreve(
+    id_particip     INTEGER            NOT NULL,
+    id_sessao       INTEGER            NOT NULL,
+    papel_particip  papel_participante NOT NULL,
+    status          status_inscricao   NOT NULL,
+    CONSTRAINT pk_inscreve PRIMARY KEY (id_particip, id_sessao),
+    CONSTRAINT fk_inscreve_participante
+        FOREIGN KEY (id_particip) REFERENCES participante (id_particip)
+        ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT fk_inscreve_sessao
+        FOREIGN KEY (id_sessao) REFERENCES sessao (id_sessao)
+        ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+CREATE TABLE exige(
+    id_atividade INTEGER NOT NULL,
+    id_recurso   INTEGER NOT NULL,
+    CONSTRAINT pk_exige PRIMARY KEY (id_atividade, id_recurso),
+    CONSTRAINT fk_exige_atividade
+        FOREIGN KEY (id_atividade) REFERENCES atividade (id_atividade)
+        ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT fk_exige_recurso
+        FOREIGN KEY (id_recurso) REFERENCES recurso (id_recurso)
+        ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+CREATE TABLE possui(
+    id_recurso INTEGER NOT NULL,
+    id_espaco  INTEGER NOT NULL,
+    CONSTRAINT pk_possui PRIMARY KEY (id_recurso, id_espaco),
+    CONSTRAINT fk_possui_recurso
+        FOREIGN KEY (id_recurso) REFERENCES recurso (id_recurso)
+        ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT fk_possui_espaco
+        FOREIGN KEY (id_espaco) REFERENCES espaco (id_espaco)
+        ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+
+-- TRIGGER 1: todo promotor precisa estar em UMA das subtabelas.
+-- Verificada só no fim da transação (DEFERRED).
+
+CREATE FUNCTION fn_checa_especializacao_promotor() RETURNS trigger AS $$
+DECLARE
+    v_id INTEGER;
+BEGIN
+    v_id := CASE WHEN TG_OP = 'DELETE' THEN OLD.id_promotor ELSE NEW.id_promotor END;
+
+    IF EXISTS (SELECT 1 FROM promotor WHERE id_promotor = v_id)
+       AND NOT EXISTS (SELECT 1 FROM pessoa_fisica WHERE id_promotor = v_id)
+       AND NOT EXISTS (SELECT 1 FROM organizacao   WHERE id_promotor = v_id) THEN
+        RAISE EXCEPTION 'Promotor % precisa ser pessoa fisica ou organizacao', v_id;
+    END IF;
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE CONSTRAINT TRIGGER trg_promotor_total
+    AFTER INSERT ON promotor
+    DEFERRABLE INITIALLY DEFERRED
+    FOR EACH ROW EXECUTE FUNCTION fn_checa_especializacao_promotor();
+
+CREATE CONSTRAINT TRIGGER trg_pessoa_fisica_total
+    AFTER DELETE ON pessoa_fisica
+    DEFERRABLE INITIALLY DEFERRED
+    FOR EACH ROW EXECUTE FUNCTION fn_checa_especializacao_promotor();
+
+CREATE CONSTRAINT TRIGGER trg_organizacao_total
+    AFTER DELETE ON organizacao
+    DEFERRABLE INITIALLY DEFERRED
+    FOR EACH ROW EXECUTE FUNCTION fn_checa_especializacao_promotor()
+
+
+-- TRIGGER 2: Log automático de alteração de sessão
+-- Grava o estado ANTERIOR sempre que data, horário ou espaço mudarem,
+-- mas só se a sessão já estava agendada por completo (log exige NOT NULL)
+
+CREATE FUNCTION fn_log_sessao() RETURNS trigger AS $$
+BEGIN
+    INSERT INTO log_sessao (id_sessao, data_an, horarioi_an, horariot_an, id_espaco_an)
+    VALUES (OLD.id_sessao, OLD.data, OLD.horarioi, OLD.horariot, OLD.id_espaco);
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_sessao_log
+    AFTER UPDATE OF data, horarioi, horariot, id_espaco ON sessao
+    FOR EACH ROW
+    WHEN (
+        OLD.data IS NOT NULL
+        AND OLD.horarioi IS NOT NULL
+        AND OLD.horariot IS NOT NULL
+        AND (OLD.data      IS DISTINCT FROM NEW.data
+          OR OLD.horarioi  IS DISTINCT FROM NEW.horarioi
+          OR OLD.horariot  IS DISTINCT FROM NEW.horariot
+          OR OLD.id_espaco IS DISTINCT FROM NEW.id_espaco)
+    )
+    EXECUTE FUNCTION fn_log_sessao();
+
+
+-- TRIGGER 3: cap_max da sessão não pode exceder a capacidade do espaço
+
+CREATE FUNCTION fn_checa_cap_sessao() RETURNS trigger AS $$
+DECLARE
+    v_capacidade INTEGER;
+BEGIN
+    IF NEW.cap_max IS NOT NULL THEN
+        SELECT capacidade INTO v_capacidade
+        FROM espaco WHERE id_espaco = NEW.id_espaco;
+
+        IF NEW.cap_max > v_capacidade THEN
+            RAISE EXCEPTION 'cap_max (%) excede a capacidade do espaco (%)',
+                NEW.cap_max, v_capacidade;
+        END IF;
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_sessao_cap_espaco
+    BEFORE INSERT OR UPDATE OF cap_max, id_espaco ON sessao
+    FOR EACH ROW EXECUTE FUNCTION fn_checa_cap_sessao();
+
+
+-- TRIGGER 4: sessão precisa ocorrer dentro do período do evento
+
+CREATE FUNCTION fn_checa_periodo_sessao() RETURNS trigger AS $$
+DECLARE
+    v_ini DATE;
+    v_fim DATE;
+BEGIN
+    SELECT e.datai, e.datat INTO v_ini, v_fim
+    FROM atividade a
+    JOIN evento e ON e.id_evento = a.id_evento
+    WHERE a.id_atividade = NEW.id_atividade;
+
+    IF NEW.data IS NOT NULL AND (
+          (v_ini IS NOT NULL AND NEW.data < v_ini)
+       OR (v_fim IS NOT NULL AND NEW.data > v_fim)) THEN
+        RAISE EXCEPTION 'Data da sessao (%) fora do periodo do evento (% a %)',
+            NEW.data, v_ini, v_fim;
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_sessao_periodo_evento
+    BEFORE INSERT OR UPDATE OF data, id_atividade ON sessao
+    FOR EACH ROW EXECUTE FUNCTION fn_checa_periodo_sessao();
+
+
+-- TRIGGER 5: limite de vagas na inscrição da sessão
+-- Só conta quem entra como PARTICIPANTE (palestrantes não ocupam vaga)
+
+CREATE FUNCTION fn_checa_lotacao_sessao() RETURNS trigger AS $$
+DECLARE
+    v_cap       INTEGER;
+    v_inscritos INTEGER;
+BEGIN
+    IF NEW.papel_particip = 'PARTICIPANTE' THEN
+        -- FOR UPDATE trava a sessão para evitar duas inscrições simultâneas na última vaga
+        SELECT cap_max INTO v_cap
+        FROM sessao WHERE id_sessao = NEW.id_sessao FOR UPDATE;
+
+        IF v_cap IS NOT NULL THEN
+            SELECT COUNT(*) INTO v_inscritos
+            FROM inscreve
+            WHERE id_sessao = NEW.id_sessao
+              AND papel_particip = 'PARTICIPANTE';
+
+            IF v_inscritos >= v_cap THEN
+                RAISE EXCEPTION 'Sessao % lotada (% vagas)', NEW.id_sessao, v_cap;
+            END IF;
+        END IF;
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_inscreve_lotacao
+    BEFORE INSERT ON inscreve
+    FOR EACH ROW EXECUTE FUNCTION fn_checa_lotacao_sessao();
+
+
+-- TRIGGER 6: inscrição em sessão exige inscrição prévia no evento
+-- (aplica só ao papel PARTICIPANTE)
+
+CREATE FUNCTION fn_checa_inscricao_evento() RETURNS trigger AS $$
+BEGIN
+    IF NEW.papel_particip = 'PARTICIPANTE' AND NOT EXISTS (
+        SELECT 1
+        FROM sessao s
+        JOIN atividade a ON a.id_atividade = s.id_atividade
+        JOIN participa p ON p.id_evento = a.id_evento
+        WHERE s.id_sessao   = NEW.id_sessao
+          AND p.id_particip = NEW.id_particip
+    ) THEN
+        RAISE EXCEPTION 'Participante % nao esta inscrito no evento da sessao %',
+            NEW.id_particip, NEW.id_sessao;
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_inscreve_participa_evento
+    BEFORE INSERT ON inscreve
+    FOR EACH ROW EXECUTE FUNCTION fn_checa_inscricao_evento();
+
+
+-- TRIGGER 7: espaço da sessão precisa ter os recursos que a atividade exige
+-- Deferido: dá tempo de inserir sessao e exige na mesma transação
+
+CREATE FUNCTION fn_checa_recursos_sessao() RETURNS trigger AS $$
+DECLARE
+    v_faltando VARCHAR(50);
+BEGIN
+    SELECT r.nome INTO v_faltando
+    FROM exige x
+    JOIN recurso r ON r.id_recurso = x.id_recurso
+    WHERE x.id_atividade = NEW.id_atividade
+      AND NOT EXISTS (
+          SELECT 1 FROM possui p
+          WHERE p.id_recurso = x.id_recurso
+            AND p.id_espaco  = NEW.id_espaco
+      )
+    LIMIT 1;
+
+    IF v_faltando IS NOT NULL THEN
+        RAISE EXCEPTION 'Espaco % nao possui o recurso exigido: %',
+            NEW.id_espaco, v_faltando;
+    END IF;
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE CONSTRAINT TRIGGER trg_sessao_recursos
+    AFTER INSERT OR UPDATE OF id_atividade, id_espaco ON sessao
+    DEFERRABLE INITIALLY DEFERRED
+    FOR EACH ROW EXECUTE FUNCTION fn_checa_recursos_sessao();
+
+
+-- TRIGGER 8: só permite inscrição em sessões de atividades que exigem inscrição
+-- (aplica só ao papel PARTICIPANTE, como os triggers 4 e 5)
+
+CREATE FUNCTION fn_checa_exige_inscricao() RETURNS trigger AS $$
+DECLARE
+    v_exige BOOLEAN;
+BEGIN
+    IF NEW.papel_particip = 'PARTICIPANTE' THEN
+        SELECT a.exige_inscri INTO v_exige
+        FROM sessao s
+        JOIN atividade a ON a.id_atividade = s.id_atividade
+        WHERE s.id_sessao = NEW.id_sessao;
+
+        IF v_exige IS NOT TRUE THEN
+            RAISE EXCEPTION 'A atividade da sessao % nao exige inscricao adicional', NEW.id_sessao;
+        END IF;
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_inscreve_exige_inscricao
+    BEFORE INSERT ON inscreve
+    FOR EACH ROW EXECUTE FUNCTION fn_checa_exige_inscricao();
+
 ============================================================
 4. CONSULTAS
 ============================================================
 CONSULTA 1
-OBJETIVO: [uma frase]
-SQL: [consulta]
+OBJETIVO: Listar a programação completa de uma edição específica de determinado evento (Semana Acadêmica de Computação 15), incluindo as informações da atividade, o espaço e os horários, com ordenação temporal (atividades aparecem na ordem em que acontecem).
+SQL: SELECT a.titulo AS atividade, 
+       a.tipo, 
+       es.nome AS espaco, 
+       s.data, 
+       s.horarioi, 
+       s.horariot
+FROM evento e
+JOIN atividade a ON a.id_evento = e.id_evento
+JOIN sessao s ON s.id_atividade = a.id_atividade
+JOIN espaco es ON es.id_espaco = s.id_espaco
+WHERE e.titulo = 'Semana Acadêmica de Computação XV'
+ORDER BY s.data, s.horarioi;
+
 CONSULTA 2
-OBJETIVO: [uma frase]
-SQL: [consulta]
+OBJETIVO: Gerar um relatório de ocupação exibindo a capacidade máxima da sessão e contabilizando o número de inscrições por status, restrito às sessões que possuam pelo menos um inscrito.
+SQL: SELECT a.titulo AS atividade,
+       s.id_sessao,
+       s.cap_max AS capacidade_sessao,
+       COUNT(i.id_particip) FILTER (WHERE i.status = 'CONFIRMADA') AS confirmadas,
+       COUNT(i.id_particip) FILTER (WHERE i.status = 'EM ESPERA') AS em_espera,
+       COUNT(i.id_particip) FILTER (WHERE i.status = 'CANCELADA') AS canceladas
+FROM atividade a
+JOIN sessao s ON s.id_atividade = a.id_atividade
+LEFT JOIN inscreve i ON i.id_sessao = s.id_sessao
+GROUP BY a.id_atividade, a.titulo, s.id_sessao, s.cap_max
+HAVING COUNT(i.id_particip) > 0
+ORDER BY confirmadas DESC;
+
 CONSULTA 3
-OBJETIVO: [uma frase]
-SQL: [consulta]
+OBJETIVO: Realizar um levantamento geral da programação de diversos eventos, identificando todas as atividades relacionadas a dados ou inteligência artificial buscando por palavras-chave no título, utilizando ILIKE quando pertinente.
+SQL: SELECT e.titulo AS evento, 
+       a.titulo AS atividade, 
+       a.tipo
+FROM atividade a
+JOIN evento e ON a.id_evento = e.id_evento
+WHERE a.titulo ILIKE '%dados%' 
+   OR a.titulo LIKE '%IA %'
+   OR a.titulo ILIKE '%inteligência artificial%'
+ORDER BY e.datai;
+
 CONSULTA 4
-OBJETIVO: [uma frase]
-SQL: [consulta]
+OBJETIVO: Identificar participantes "fantasmas" em eventos: pessoas que se inscreveram no evento geral, mas que não possuem nenhuma inscrição com status 'CONFIRMADA' nas sessões de atividades daquele mesmo evento.
+SQL: SELECT p.nome, 
+       p.email, 
+       e.titulo AS evento
+FROM participante p
+JOIN participa pa ON p.id_particip = pa.id_particip
+JOIN evento e ON pa.id_evento = e.id_evento
+WHERE NOT EXISTS (
+    SELECT 1 
+    FROM inscreve i
+    JOIN sessao s ON i.id_sessao = s.id_sessao
+    JOIN atividade a ON s.id_atividade = a.id_atividade
+    WHERE i.id_particip = p.id_particip
+      AND a.id_evento = e.id_evento
+      AND i.status = 'CONFIRMADA'
+)
+ORDER BY e.titulo, p.nome;
+
 CONSULTA 5
-OBJETIVO: [uma frase]
-SQL: [consulta]
+OBJETIVO: Criar um ranking de popularidade das atividades dentro de cada evento, ranqueando-as com base no número total de pessoas interessadas (inscrições confirmadas ou em espera).
+SQL: WITH inscricoes_por_atividade AS (
+    SELECT ev.titulo AS evento,
+           a.titulo AS atividade,
+           COUNT(i.id_particip) AS total_interessados
+    FROM evento ev
+    JOIN atividade a ON a.id_evento = ev.id_evento
+    JOIN sessao s ON s.id_atividade = a.id_atividade
+    JOIN inscreve i ON i.id_sessao = s.id_sessao
+    WHERE i.status IN ('CONFIRMADA', 'EM ESPERA')
+    GROUP BY ev.id_evento, ev.titulo, a.id_atividade, a.titulo
+)
+SELECT evento,
+       atividade,
+       total_interessados,
+       RANK() OVER (
+           PARTITION BY evento 
+           ORDER BY total_interessados DESC
+       ) AS ranking_no_evento
+FROM inscricoes_por_atividade
+ORDER BY evento, ranking_no_evento;
 ============================================================
 FIM DO ARQUIVO
 ============================================================

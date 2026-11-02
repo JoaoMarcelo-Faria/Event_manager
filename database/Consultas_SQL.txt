@@ -2,7 +2,7 @@
 4. CONSULTAS
 ============================================================
 CONSULTA 1
-OBJETIVO: Listar a programação completa da edição atual de um evento específico (Semana Acadêmica de Computação 26), incluindo as informações da atividade, o espaço e os horários, com ordenação temporal (atividades aparecem na ordem em que acontecem).
+OBJETIVO: Listar a programação completa de uma edição específica de determinado evento (Semana Acadêmica de Computação 15), incluindo as informações da atividade, o espaço e os horários, com ordenação temporal (atividades aparecem na ordem em que acontecem).
 SQL: SELECT a.titulo AS atividade, 
        a.tipo, 
        es.nome AS espaco, 
@@ -13,7 +13,7 @@ FROM evento e
 JOIN atividade a ON a.id_evento = e.id_evento
 JOIN sessao s ON s.id_atividade = a.id_atividade
 JOIN espaco es ON es.id_espaco = s.id_espaco
-WHERE e.titulo = 'Semana Acadêmica de Computação 26'
+WHERE e.titulo = 'Semana Acadêmica de Computação XV'
 ORDER BY s.data, s.horarioi;
 
 CONSULTA 2
@@ -32,7 +32,7 @@ HAVING COUNT(i.id_particip) > 0
 ORDER BY confirmadas DESC;
 
 CONSULTA 3
-OBJETIVO: Realizar um levantamento geral da programação, identificando todas as atividades relacionadas a dados ou inteligência artificial buscando por palavras-chave no título, utilizando ILIKE quando pertinente.
+OBJETIVO: Realizar um levantamento geral da programação de diversos eventos, identificando todas as atividades relacionadas a dados ou inteligência artificial buscando por palavras-chave no título, utilizando ILIKE quando pertinente.
 SQL: SELECT e.titulo AS evento, 
        a.titulo AS atividade, 
        a.tipo

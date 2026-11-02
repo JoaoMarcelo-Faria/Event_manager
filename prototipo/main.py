@@ -63,6 +63,9 @@ def preparar_banco(conn, ddl):
         conn.execute(ddl)
         conn.commit()
         print("Banco preparado (DDL executado).")
+    except psycopg.errors.DuplicateObject:
+        conn.rollback()
+        print("Banco já estava preparado (estruturas existentes mantidas).")
     except psycopg.Error as e:
         conn.rollback()
         print(f"Erro ao executar o DDL: {e}")
@@ -155,7 +158,7 @@ def montar_prompt(ddl, pergunta):
     - Gere apenas comandos SELECT.
     - Use apenas as tabelas e colunas do esquema acima.
 
-    Pergunta: {pergunta}"""
+    Pergunta: {pergunta} /no_think"""
 
 def consultar_ollama(client, config, prompt):
     try:
