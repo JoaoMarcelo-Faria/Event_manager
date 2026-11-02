@@ -32,7 +32,7 @@ INSTRUÇÕES PARA EXECUÇÃO DO PROTÓTIPO:
    python main.py
 
 MODELO UTILIZADO NO OLLAMA:
-- [Inserir o nome do modelo utilizado, por exemplo: qwen3:8b]
+- qwen3:8b
 
 EVENTUAIS LIMITAÇÕES OU FUNCIONALIDADES NÃO CONCLUÍDAS:
-- [Descreva aqui se alguma parte do sistema não foi feita, se existe algum bug conhecido no protótipo ou nos triggers. Se tudo estiver funcionando conforme os requisitos, escreva "Nenhuma limitação funcional encontrada."]
+- Nenhuma limitação funcional encontrada.
